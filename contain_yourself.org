@@ -304,10 +304,10 @@
            - "8080:80"
    #+END_SRC
    #+BEGIN_NOTES
-   - =docker-compose -f with-docs.yml up -d=
-   - =docker-compose -f with-docs.yml ps=
+   - =docker-compose -f documentation.yml up -d=
+   - =docker-compose -f documentation.yml ps=
    - Visit localhost:8080
-   - =docker-compose -f with-docs.yml kill=
+   - =docker-compose -f documentation.yml kill=
    #+END_NOTES
 * Continuous Integration
   #+BEGIN_NOTES
