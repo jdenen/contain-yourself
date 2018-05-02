@@ -1,0 +1,13 @@
+version: '3.6'
+services:
+  hello:
+    build:
+      context: .
+      dockerfile: hello.dockerfile
+    image: hello.py:2
+    container_name: hello_py
+  goodbye:
+    image: goodbye.rb:1
+    container_name: goodbye_rb
+    depends_on:
+      - hello

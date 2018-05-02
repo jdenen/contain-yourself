@@ -1,0 +1,6 @@
+.DS_Store
+.pytest_cache/
+.yardoc/
+__pycache__/
+doc/
+contain_yourself.html

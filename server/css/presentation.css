@@ -1,0 +1,19 @@
+#sec-title-slide > p.date {
+    display: none;
+}
+
+.reveal pre {
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    font-size: 1.1em;
+}
+
+.reveal h3 {
+    font-size: 2.25em;
+}
+
+.reveal section img {
+    border: 0px;
+    background: none;
+}

@@ -1,0 +1,337 @@
+#+OPTIONS: reveal_center:t reveal_progress:t reveal_history:t reveal_control:t
+#+OPTIONS: reveal_rolling_links:t reveal_keyboard:t reveal_overview:t num:nil
+#+OPTIONS: toc:nil
+#+REVEAL_MARGIN: 0.2
+#+REVEAL_MIN_SCALE: 0.5
+#+REVEAL_MAX_SCALE: 2.5
+#+REVEAL_TRANS: none
+#+REVEAL_THEME: night
+#+REVEAL_EXTRA_CSS: ./reveal.js/css/theme/presentation.css
+#+REVEAL_HLEVEL: 1
+#+REVEAL_PLUGINS: notes highlight
+
+#+TITLE: Contain Yourself:
+#+AUTHOR: Docker for the Entire SDLC
+#+EMAIL: johnson.denen@gmail.com
+
+* What is Docker?
+  #+BEGIN_NOTES
+  Hope most of you know since you're here
+  - OS-level virtualization
+  - Containerization
+  #+END_NOTES
+* What can we do with Docker?
+  #+BEGIN_NOTES
+  - So many things
+  - What this talk is about
+  #+END_NOTES
+* About me
+  #+ATTR_REVEAL: :frag (appear)
+    - Software Artisan
+    - "DevOps"
+    - Docker-based Continuous Delivery
+    - Emacs
+* Docker terms
+** Image
+   #+BEGIN_SRC dockerfile
+     FROM python:3.6.4
+     MAINTAINER Johnson
+
+     CMD ["python", "-c", "print('Hello, Stir Trek')"]
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Defined in a Dockerfile
+   - Like a class
+   - Inherits
+   - Defines a main
+   - "Compiled"
+   - =docker build . -t hello.py:1 -f docker-terms/hello.dockerfile=
+   #+END_NOTES
+** Container
+   #+BEGIN_NOTES
+   - Like an instance in OO
+   - Will die when finished
+   - Can be a long-running process
+   - =docker run hello.py:1=
+   - =docker run -d hello.py:1 sleep 30=
+   #+END_NOTES
+** docker-compose
+   #+BEGIN_SRC yaml
+     version: '3.6'
+     services:
+       hello:
+         build:
+           context: .
+           dockerfile: hello.dockerfile
+         image: hello.py:2
+         container_name: hello_py
+       goodbye:
+         image: goodbye.rb:1
+         container_name: goodbye_rb
+         depends_on:
+           - hello
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Abstracted to services
+   - Meant to be long-running
+   - Usually linked together
+   - Executed in order with depends_on
+   - docker-compose -f docker-terms/hello-goodbye.yml up
+   #+END_NOTES
+* Docker and your SDLC
+* Development
+  #+BEGIN_NOTES
+  - Easiest to talk about
+  - Probably the most common use case
+  - Show of hands
+  #+END_NOTES
+** Simple REST app
+   #+BEGIN_SRC python
+     from flask import Flask
+     app = Flask(__name__)
+
+
+     @app.route("/rand", defaults={"max_num": None})
+     @app.route("/rand/<int:max_num>")
+     def rand(max_num):
+         rand = RandomNumber().get(max_num)
+         return str(rand)
+   #+END_SRC
+** Simple object
+   #+BEGIN_SRC python
+     import random
+
+
+     class RandomNumber:
+         def __init__(self):
+             self.minimum = 0
+             self.maximum = 5
+
+         def get(self, new_max=None):
+             max_n = new_max or self.maximum
+             return random.randint(self.minimum, max_n)
+   #+END_SRC
+   #+BEGIN_NOTES
+   - GET request
+   - No arguments, random between 0 and 10
+   - One argument, random between 0 and arg
+   #+END_NOTES
+** Simple tests
+   #+BEGIN_SRC python
+     from random_number import RandomNumber
+
+     under_test = RandomNumber()
+
+     def test_get_returns_between_minimum_and_maximum():
+         under_test.minimum = 1
+         under_test.maximum = 2
+         for _ in range(100):
+             rand = under_test.get()
+             assert rand >= 1 and rand <= 2
+
+     def test_get_returns_between_minimum_and_param():
+         under_test.minimum = 55
+         for _ in range(100):
+             rand = under_test.get(56)
+             assert rand >= 55 and rand <= 56
+   #+END_SRC
+** Simple image
+   #+BEGIN_SRC dockerfile
+     FROM kennethreitz/pipenv:latest
+     MAINTAINER Johnson
+
+     ENV FLASK_APP random_number.py
+     EXPOSE 5000
+
+     WORKDIR /app
+     COPY Pipfile* ./
+     COPY random_number.py .
+     COPY test ./test
+
+     RUN pipenv install
+
+     CMD ["pipenv", "run", "flask", "run", "--host=0.0.0.0"]
+   #+END_SRC
+   #+BEGIN_NOTES
+   - =docker build -t random:untested -f untested.dockerfile .=
+   - =docker run -p 5000:5000 random:untested=
+   #+END_NOTES
+** With unit tests
+   #+BEGIN_SRC dockerfile
+     FROM kennethreitz/pipenv:latest
+     MAINTAINER Johnson
+
+     ENV FLASK_APP random_number.py
+     EXPOSE 5000
+
+     WORKDIR /app
+     COPY Pipfile* ./
+     COPY random_number.py .
+     COPY test ./test
+
+     RUN pipenv install --dev
+     RUN pipenv run pytest
+
+     CMD ["pipenv", "run", "flask", "run", "--host=0.0.0.0"]
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Add the test directory
+   - Install dev dependencies
+   - Run unit tests
+   - =docker build -t random:unit-tested -f unit-tested.dockerfile .=
+   - =docker run -p 5000:5000 random:unit-tested=
+   #+END_NOTES
+* Acceptance testing
+  #+BEGIN_NOTES
+  - Hope you're doing acceptance level testing
+  - Written in another language? (Ruby)
+  - Written by another group? (QA)
+  - Use Docker for faster/easier feedback
+  #+END_NOTES
+** Sidecar
+   #+ATTR_HTML: :height 50% :width 50%
+   [[./img/sidecar.jpg]]
+   #+BEGIN_NOTES
+   - Also called the ambassador pattern
+   - Run a "main" container
+   - Run a linked support container (the sidecar)
+   #+END_NOTES
+** Cucumber sidecar
+   #+BEGIN_SRC feature
+     Feature: GET random number
+
+       Scenario: GET random number between 0 and 10
+         When I get a random number
+         Then it is between 0 and 10
+
+       Scenario Outline: GET random number between 0 and n
+         When I get a random number with a max of <n>
+         Then it is between 0 and <n>
+
+         Examples:
+         |   n |
+         |   1 |
+         |   2 |
+         |   5 |
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Wrote our main app in Python
+   - Write our acceptance tests in Ruby
+   - Use Cucumber because that's something
+   #+END_NOTES
+** Testing image
+   #+BEGIN_SRC dockerfile
+     FROM ruby:2.5.1-slim
+     MAINTAINER Johnson
+
+     WORKDIR /tests
+     COPY Gemfile* /tests/
+     COPY features/ /tests/features/
+
+     RUN bundle install
+     CMD ["bundle", "exec", "cucumber"]
+   #+END_SRC
+   #+BEGIN_NOTES
+   - =docker build -t sidecar:cucumber -f ua-tested.dockerfile .=
+   - Going to fail for connection refused
+   - =docker run sidecar:cucumber=
+   #+END_NOTES
+** Linking containers
+   #+BEGIN_SRC yaml
+     version: '3.6'
+     services:
+       random_number:
+         image: random:acceptance-tested
+         ports:
+           - "5000:5000"
+       uat:
+         image: sidecar:cucumber
+         depends_on:
+           - random_number
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Using pre-built images
+   - Docker networking handles the magic
+   - =docker-compose up -d=
+   - =docker-compose ps=
+   - =docker-compose logs uat=
+   - Really cool
+   - Lets us develop independently
+   - Devs/QA can get quick feedback
+   #+END_NOTES
+* Documentation
+  #+BEGIN_NOTES
+  - Living specifications
+  - No one uses it this way
+  - Use Docker to make it easy
+  #+END_NOTES
+** Image
+   #+BEGIN_SRC dockerfile
+     FROM ruby:2.5.1-slim AS docmaker
+     MAINTAINER Johnson
+
+     WORKDIR /docs
+     COPY cuke/* /docs/
+     RUN bundle install
+     RUN bundle exec yard config load_plugins true
+     RUN bundle exec yardoc '**/*.rb' '**/*.feature'
+
+     FROM httpd:2.4
+     MAINTAINER Johnson
+
+     COPY --from=docmaker /docs/doc/ /usr/local/apache2/htdocs/
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Uses multi-stage builds (more later)
+   - =docker build -t random:docs -f documented.dockerfile=
+   - Could run it with =docker run=
+   - But...
+   #+END_NOTES
+** Compose
+   #+BEGIN_SRC yaml
+     version: '3.6'
+     services:
+       random_number:
+         image: random:acceptance-tested
+         ports:
+           - "5000:5000"
+       uat:
+         image: sidecar:cucumber
+         depends_on:
+           - random_number
+       docs:
+         image: random:docs
+         ports:
+           - "8080:80"
+   #+END_SRC
+   #+BEGIN_NOTES
+   - =docker-compose -f with-docs.yml up -d=
+   - =docker-compose -f with-docs.yml ps=
+   - Visit localhost:8080
+   - =docker-compose -f with-docs.yml kill=
+   #+END_NOTES
+* Continuous Integration
+  #+BEGIN_NOTES
+  - We can dev, we can test
+  - Time to do it continuously
+  - Hope you're familiar with CI
+  #+END_NOTES
+** Jenkins
+   #+ATTR_HTML: :height 50% :width 50%
+   [[./img/jenkins.png]]
+   #+BEGIN_NOTES
+   - The "default"
+   - Not suggesting Jenkins master container
+   - Not suggesting Jenkins worker containers
+   - Using CI to build Docker image artifacts
+   - Interesting versioning schemes
+   - Using Jenkins pipelines as an example
+   #+END_NOTES
+* Notes/Ignore
+# dind
+# docker-mon
+# documentation
+# testing sidecars
+# slides
+# internal tools
+# artifacts

@@ -1,0 +1,15 @@
+version: '3.6'
+services:
+  random_number:
+    image: random:acceptance-tested
+    ports:
+      - "5000:5000"
+  sleeper:
+    image: python:3.6.4
+    command: sleep 10
+    depends_on:
+      - random_number
+  uat:
+    image: sidecar:cucumber
+    depends_on:
+      - sleeper
