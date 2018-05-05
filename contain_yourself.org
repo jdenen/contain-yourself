@@ -85,7 +85,7 @@
   - Probably the most common use case
   - Show of hands
   #+END_NOTES
-** Simple REST app
+** REST app
    #+BEGIN_SRC python
      from flask import Flask
      app = Flask(__name__)
@@ -116,7 +116,7 @@
    - No arguments, random between 0 and 10
    - One argument, random between 0 and arg
    #+END_NOTES
-** Simple tests
+** Unit tests
    #+BEGIN_SRC python
      from random_number import RandomNumber
 
@@ -155,7 +155,7 @@
    - =docker build -t random:untested -f untested.dockerfile .=
    - =docker run -p 5000:5000 random:untested=
    #+END_NOTES
-** With unit tests
+** With testing
    #+BEGIN_SRC dockerfile
      FROM kennethreitz/pipenv:latest
      MAINTAINER Johnson
@@ -195,7 +195,7 @@
    - Run a "main" container
    - Run a linked support container (the sidecar)
    #+END_NOTES
-** Cucumber sidecar
+** Cucumber
    #+BEGIN_SRC feature
      Feature: GET random number
 
@@ -254,7 +254,8 @@
    - =docker-compose -f acceptance.yml up -d=
    - =docker-compose -f acceptance.yml ps=
    - =docker-compose -f acceptance.yml logs uat=
-   - Really cool
+   - Not a true sidecar because it doesn't share lifecycle
+   - But really cool
    - Lets us develop independently
    - Devs/QA can get quick feedback
    #+END_NOTES
@@ -325,12 +326,70 @@
    - Using CI to build Docker image artifacts
    - Interesting versioning schemes
    - Using Jenkins pipelines as an example
+   - Pipelines useful for CD in Jenkins
+   - Not perfect
+   - Built around stages, like SaaS options
+   - Defined with a Groovy DSL in a project Jenkinsfile
    #+END_NOTES
+** Build
+   #+BEGIN_SRC groovy
+     stage('Build') {
+         checkout scm
+         appImage = docker.build("random:${env.GIT_SHA}", "app/ua-tested.dockerfile")
+     }
+   #+END_SRC
+   #+BEGIN_NOTES
+   - =checkout scm= gets our source code
+   - Will get the branch or PR pushed to
+   - Build our app image tagged with the Git SHA
+   - This runs our unit tests
+   #+END_NOTES
+** Test
+   #+BEGIN_SRC groovy
+     stage('Test') {
+         appImage.withRun("-p 5000:5000") { app ->
+             cucumber = docker.build("random:cuke", "app/cuke/Dockerfile")
+             cucumber.run("--link ${app.id}:random_number")
+         }
+     }
+   #+END_SRC
+   #+BEGIN_NOTES
+   - =withRun= closure executes =docker run=
+   - Builds and runs our Cucumber image
+   - Links the Cucumber container to our running app container
+   - This is the magic that =docker-compose= handled for us before
+   - =withRun= kills the app container at closure end
+   #+END_NOTES
+** Publish
+   #+BEGIN_SRC groovy
+     stage('Publish') {
+         appImage.push()
+         appImage.push(env.BRANCH_NAME)
+     }
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Validated our image is good
+   - Won't get here if tests or build failed
+   - Tags app image with branch name (like master)
+   #+END_NOTES
+** Versioning
+  #+ATTR_REVEAL: :frag (appear)
+    - Tags are pointers
+    - Like Git refs
+    - Point to Image ID
+    - Many tags per ID
+    - One ID per tag
+    - LATEST is not special
+  #+BEGIN_NOTES
+  - Used effectively where branches have meaning
+  - "master" is deployable
+  - "dev" is validated
+  - SHAs useful if PRs up-to-date
+  - Traceability
+  - Continuous Delivery/Deployment
+  #+END_NOTES
 * Notes/Ignore
 # dind
 # docker-mon
-# documentation
-# testing sidecars
 # slides
 # internal tools
-# artifacts
