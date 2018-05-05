@@ -6,7 +6,7 @@ services:
       - "5000:5000"
   sleeper:
     image: python:3.6.4
-    command: sleep 10
+    command: sleep 1
     depends_on:
       - random_number
   uat:

@@ -6,7 +6,14 @@
     width: 100%;
     border: none;
     box-shadow: none;
-    font-size: 1.1em;
+    font-size: 1em;
+}
+
+.reveal pre.src-sh {
+    width: 100%;
+    border: none;
+    box-shadow: none;
+    font-size: 0.75em;
 }
 
 .reveal h3 {

@@ -6,10 +6,10 @@ EXPOSE 5000
 
 WORKDIR /app
 COPY Pipfile* ./
+RUN pipenv install --dev
+
 COPY random_number.py .
 COPY test ./test
-
-RUN pipenv install --dev
 RUN pipenv run pytest
 
 CMD ["pipenv", "run", "flask", "run", "--host=0.0.0.0"]
