@@ -1,4 +1,4 @@
-#+OPTIONS: reveal_center:t reveal_progress:t reveal_history:t reveal_control:t
+#+OPTIONS: reveal_center:t reveal_progress:t reveal_history:t reveal_control:nil
 #+OPTIONS: reveal_rolling_links:t reveal_keyboard:t reveal_overview:t num:nil
 #+OPTIONS: toc:nil
 #+REVEAL_MARGIN: 0.2
@@ -33,7 +33,7 @@
     - Emacs
 * Docker terms
 ** Image
-   #+BEGIN_SRC dockerfile
+   #+BEGIN_SRC dockerfile -n
      FROM python:3.6.4
      MAINTAINER Johnson
 
@@ -56,7 +56,7 @@
    - =docker run -d hello.py:1 sleep 30=
    #+END_NOTES
 ** docker-compose
-   #+BEGIN_SRC yaml
+   #+BEGIN_SRC yaml -n
      version: '3.6'
      services:
        hello:
@@ -76,7 +76,7 @@
    - Meant to be long-running
    - Usually linked together
    - Executed in order with depends_on
-   - docker-compose -f docker-terms/hello-goodbye.yml up
+   - =docker-compose -f docker-terms/hello-goodbye.yml up=
    #+END_NOTES
 * Docker and your SDLC
 * Development
@@ -86,7 +86,7 @@
   - Show of hands
   #+END_NOTES
 ** REST app
-   #+BEGIN_SRC python
+   #+BEGIN_SRC python -n
      from flask import Flask
      app = Flask(__name__)
 
@@ -98,7 +98,7 @@
          return str(rand)
    #+END_SRC
 ** Simple object
-   #+BEGIN_SRC python
+   #+BEGIN_SRC python -n
      import random
 
 
@@ -117,7 +117,7 @@
    - One argument, random between 0 and arg
    #+END_NOTES
 ** Unit tests
-   #+BEGIN_SRC python
+   #+BEGIN_SRC python -n
      from random_number import RandomNumber
 
      under_test = RandomNumber()
@@ -136,7 +136,7 @@
              assert rand >= 55 and rand <= 56
    #+END_SRC
 ** Simple image
-   #+BEGIN_SRC dockerfile
+   #+BEGIN_SRC dockerfile -n
      FROM kennethreitz/pipenv:latest
      MAINTAINER Johnson
 
@@ -152,11 +152,14 @@
      CMD ["pipenv", "run", "flask", "run", "--host=0.0.0.0"]
    #+END_SRC
    #+BEGIN_NOTES
+   - =cd app=
    - =docker build -t random:untested -f untested.dockerfile .=
-   - =docker run -p 5000:5000 random:untested=
+   - =docker run -d --name random -p 5000:5000 random:untested=
+   - =curl -s http://localhost:5000/rand > result=
+   - =docker rm -f random=
    #+END_NOTES
 ** With testing
-   #+BEGIN_SRC dockerfile
+   #+BEGIN_SRC dockerfile -n
      FROM kennethreitz/pipenv:latest
      MAINTAINER Johnson
 
@@ -196,12 +199,12 @@
    - Run a linked support container (the sidecar)
    #+END_NOTES
 ** Cucumber
-   #+BEGIN_SRC feature
+   #+BEGIN_SRC feature -n
      Feature: GET random number
 
-       Scenario: GET random number between 0 and 10
+       Scenario: GET random number between 0 and 5
          When I get a random number
-         Then it is between 0 and 10
+         Then it is between 0 and 5
 
        Scenario Outline: GET random number between 0 and n
          When I get a random number with a max of <n>
@@ -212,14 +215,14 @@
          |   1 |
          |   2 |
          |   5 |
-   #+END_SRC
+         #+END_SRC
    #+BEGIN_NOTES
    - Wrote our main app in Python
    - Write our acceptance tests in Ruby
    - Use Cucumber because that's something
    #+END_NOTES
 ** Testing image
-   #+BEGIN_SRC dockerfile
+   #+BEGIN_SRC dockerfile -n
      FROM ruby:2.5.1-slim
      MAINTAINER Johnson
 
@@ -233,10 +236,12 @@
    #+BEGIN_NOTES
    - =docker build -t sidecar:cucumber -f ua-tested.dockerfile .=
    - Going to fail for connection refused
+   - =docker run -d --name random random:unit-tested=
    - =docker run sidecar:cucumber=
+   - =docker rm -f random=
    #+END_NOTES
 ** Linking containers
-   #+BEGIN_SRC yaml
+   #+BEGIN_SRC yaml -n
      version: '3.6'
      services:
        random_number:
@@ -252,7 +257,7 @@
    - Using pre-built images
    - Docker networking handles the magic
    - =docker-compose -f acceptance.yml up -d=
-   - =docker-compose -f acceptance.yml ps=
+   - =docker-compose -f acceptance.yml ps uat=
    - =docker-compose -f acceptance.yml logs uat=
    - Not a true sidecar because it doesn't share lifecycle
    - But really cool
@@ -266,7 +271,7 @@
   - Use Docker to make it easy
   #+END_NOTES
 ** Image
-   #+BEGIN_SRC dockerfile
+   #+BEGIN_SRC dockerfile -n
      FROM ruby:2.5.1-slim AS docmaker
      MAINTAINER Johnson
 
@@ -284,11 +289,11 @@
    #+BEGIN_NOTES
    - Uses multi-stage builds (more later)
    - =docker build -t random:docs -f documented.dockerfile=
-   - Could run it with =docker run=
+   - DON'T: Could run it with =docker run=
    - But...
    #+END_NOTES
 ** Compose
-   #+BEGIN_SRC yaml
+   #+BEGIN_SRC yaml -n
      version: '3.6'
      services:
        random_number:
@@ -306,7 +311,7 @@
    #+END_SRC
    #+BEGIN_NOTES
    - =docker-compose -f documentation.yml up -d=
-   - =docker-compose -f documentation.yml ps=
+   - =docker-compose -f documentation.yml ps docs=
    - Visit localhost:8080
    - =docker-compose -f documentation.yml kill=
    #+END_NOTES
@@ -324,7 +329,6 @@
    - Not suggesting Jenkins master container
    - Not suggesting Jenkins worker containers
    - Using CI to build Docker image artifacts
-   - Interesting versioning schemes
    - Using Jenkins pipelines as an example
    - Pipelines useful for CD in Jenkins
    - Not perfect
@@ -332,10 +336,13 @@
    - Defined with a Groovy DSL in a project Jenkinsfile
    #+END_NOTES
 ** Build
-   #+BEGIN_SRC groovy
+   #+BEGIN_SRC groovy -n
      stage('Build') {
          checkout scm
-         appImage = docker.build("random:${env.GIT_SHA}", "app/ua-tested.dockerfile")
+         appImage = docker.build(
+             "random:${env.GIT_SHA}",
+             "app/ua-tested.dockerfile"
+         )
      }
    #+END_SRC
    #+BEGIN_NOTES
@@ -345,10 +352,13 @@
    - This runs our unit tests
    #+END_NOTES
 ** Test
-   #+BEGIN_SRC groovy
+   #+BEGIN_SRC groovy -n
      stage('Test') {
          appImage.withRun("-p 5000:5000") { app ->
-             cucumber = docker.build("random:cuke", "app/cuke/Dockerfile")
+             cucumber = docker.build(
+                 "random:cuke",
+                 "app/cuke/Dockerfile"
+             )
              cucumber.run("--link ${app.id}:random_number")
          }
      }
@@ -361,7 +371,7 @@
    - =withRun= kills the app container at closure end
    #+END_NOTES
 ** Publish
-   #+BEGIN_SRC groovy
+   #+BEGIN_SRC groovy -n
      stage('Publish') {
          appImage.push()
          appImage.push(env.BRANCH_NAME)
@@ -388,8 +398,152 @@
   - Traceability
   - Continuous Delivery/Deployment
   #+END_NOTES
-* Notes/Ignore
-# dind
-# docker-mon
-# slides
-# internal tools
+* Artifacts
+  #+BEGIN_NOTES
+  - Portable, deployable
+  - Tagging better than versioning (internally)
+  - Got some tricks for using Docker artifacts
+  #+END_NOTES
+** App with tests
+   #+BEGIN_SRC dockerfile -n
+     FROM kennethreitz/pipenv:latest
+     MAINTAINER Johnson
+
+     ENV FLASK_APP random_number.py
+     EXPOSE 5000
+
+     WORKDIR /app
+     COPY Pipfile* ./
+     COPY random_number.py .
+     COPY test ./test
+
+     RUN pipenv install --dev
+     RUN pipenv run pytest
+
+     CMD ["pipenv", "run", "flask", "run", "--host=0.0.0.0"]
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Not a deployable image
+   - Bigger than it needs to be
+   - Test files, test dependencies
+   - Inheriting from the =pipenv= image
+   #+END_NOTES
+** The old ways
+   #+ATTR_REVEAL: :frag (appear)
+   - Test outside of Docker
+   - Build multiple times
+   - =build.sh= script
+   #+BEGIN_NOTES
+   - LAST: little bash as possible
+   #+END_NOTES
+** Example
+   #+BEGIN_SRC sh -n
+     #!/bin/sh
+     echo Building alexellis2/href-counter:build
+
+     docker build --build-arg https_proxy=$https_proxy --build-arg http_proxy=$http_proxy \
+     -t alexellis2/href-counter:build . -f Dockerfile.build
+
+     docker container create --name extract alexellis2/href-counter:build
+     docker container cp extract:/go/src/github.com/alexellis/href-counter/app ./app
+     docker container rm -f extract
+
+     echo Building alexellis2/href-counter:latest
+
+     docker build --no-cache -t alexellis2/href-counter:latest .
+     rm ./app
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Docker example
+   - Make the build image
+   - Create container from build image
+   - Copy files from container
+   - Create production image using files
+   - Gross
+   #+END_NOTES
+** Multi-stage
+   #+BEGIN_SRC dockerfile -n
+     FROM kennethreitz/pipenv:latest as BUILDER
+     WORKDIR /develop
+     COPY Pipfile* ./
+     COPY random_number.py .
+     COPY test ./test
+     RUN pipenv install --dev && pipenv run pytest
+     RUN pipenv lock --requirements > requirements.txt
+
+     FROM python:3.6.4-slim
+     MAINTAINER Johnson
+     ENV FLASK_APP random_number.py
+     EXPOSE 5000
+     WORKDIR /app
+     COPY --from=BUILDER /develop/random_number.py .
+     COPY --from=BUILDER /develop/requirements.txt .
+     RUN pip install -r requirements.txt
+     CMD ["flask", "run", "--host=0.0.0.0"]
+   #+END_SRC
+   #+BEGIN_NOTES
+   - More lines, better result
+   - Uses a smaller base image
+   - Has fewer dependencies baked in (pipenv, test stack)
+   - Fewer files in the resultant image
+   - Simpler CMD
+   #+END_NOTES
+** Smaller is better
+   #+ATTR_HTML: :height 50% :width 50%
+   [[./img/small-car-small-boat.gif]]
+   #+BEGIN_NOTES
+   - Smaller images preferred
+   - Faster spin up times
+   - Less cost (sometimes)
+   - =d list -s | ag 'unit-tested|multistage'=
+   #+END_NOTES
+* Demo
+** Presentation software
+   #+ATTR_REVEAL: :frag (appear)
+   - Easy to edit
+   - Portable
+   - Programmatic
+   #+BEGIN_NOTES
+   - FIRST: Why not use Docker?
+   - LAST: Used it for this presentation
+   #+END_NOTES
+** Talkerfile
+   #+BEGIN_SRC dockerfile -n
+     FROM danidemi/docker-reveal.js:latest
+     MAINTAINER Johnson
+
+     COPY server/css/* css/theme/
+     COPY img/* img/
+     COPY contain_yourself.html /slides/index.html
+
+     RUN rm index.html
+     RUN ln -s /reveal.js /reveal.js/reveal.js
+   #+END_SRC
+   #+BEGIN_NOTES
+   - Use Emacs to convert Markdown to HTML
+   - Use Docker to manage reveal.js server
+   - Don't want this directly on my machine
+   - Version control
+   - A better way?
+   - Portable, flexible, entire app
+   - Run demo on your PO's machine?
+   #+END_NOTES
+* SDLC
+  #+ATTR_REVEAL: :frag (appear)
+  - Development
+  - Testing
+  - Documenting
+  - CI and CD
+  - Versioning
+  - Feedback
+  #+BEGIN_NOTES
+  - No deployment
+  - Its own talk
+  - You can use Docker to deploy Docker
+  #+END_NOTES
+* Fin
+  [[./img/xkcd1988.png]]
+  #+BEGIN_NOTES
+  - xkcd 1988
+  - May 2
+  #+END_NOTES
