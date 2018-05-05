@@ -1,0 +1,12 @@
+* contain-yourself
+
+Includes example code and =Talkerfile=.
+
+** Generate HTML
+   Open =contain_yourself.org= in Emacs and run =M-x org-reveal-export-to-html=.
+
+** Run
+   To run the talk server on localhost:8000, run:
+   #+BEGIN_SRC sh
+     docker-compose up -d --build
+   #+END_SRC
